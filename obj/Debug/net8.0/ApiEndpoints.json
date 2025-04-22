@@ -1,0 +1,171 @@
+[
+  {
+    "ContainingType": "PersonApi_async_REST.Program",
+    "Method": "\u003CMain\u003Eg__GetAllPerson|0_4",
+    "RelativePath": "api/",
+    "HttpMethod": "GET",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "PersonApi_async_REST.Program",
+    "Method": "\u003CMain\u003Eg__CreatePerson|0_6",
+    "RelativePath": "api/",
+    "HttpMethod": "POST",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "inputPers",
+        "Type": "PersonApi_async_REST.PersonItem",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "PersonApi_async_REST.Program",
+    "Method": "\u003CMain\u003Eg__GetPerson|0_7",
+    "RelativePath": "api/{unzr}",
+    "HttpMethod": "GET",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "unzr",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "PersonApi_async_REST.Program",
+    "Method": "\u003CMain\u003Eg__UpdatePerson|0_9",
+    "RelativePath": "api/{unzr}",
+    "HttpMethod": "POST",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "unzr",
+        "Type": "System.String",
+        "IsRequired": true
+      },
+      {
+        "Name": "inputPers",
+        "Type": "PersonApi_async_REST.PersonItem",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "PersonApi_async_REST.Program",
+    "Method": "\u003CMain\u003Eg__DeletePerson|0_10",
+    "RelativePath": "api/{unzr}",
+    "HttpMethod": "DELETE",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "unzr",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "PersonApi_async_REST.Program",
+    "Method": "\u003CMain\u003Eg__GetLog|0_5",
+    "RelativePath": "api/status",
+    "HttpMethod": "GET",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "PersonApi_async_REST.Program",
+    "Method": "\u003CMain\u003Eg__GetStatus|0_8",
+    "RelativePath": "api/status/{id}",
+    "HttpMethod": "GET",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "PersonApi_async_REST.Program",
+    "Method": "\u003CMain\u003Eg__ViewResult|0_11",
+    "RelativePath": "api/status/{id}",
+    "HttpMethod": "PUT",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  }
+]

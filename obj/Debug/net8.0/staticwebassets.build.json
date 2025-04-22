@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "ulOLLvNA9KDxNg7O/dCgDVTxBfekBLnhZvleCm/RlmM=",
+  "Source": "PersonApi_async_REST",
+  "BasePath": "_content/PersonApi_async_REST",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}
