@@ -1,55 +1,380 @@
-# Асинхронний .NET C# REST-сервіс з підтримкою системи «Трембіта»
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 
-REST-сервіс, описаний в даній інструкції, розроблений на мові програмування C# з використанням .Net і є сумісним з системою «Трембіта».
+namespace PersonApi_async_REST
+{
+    internal class Program
+    {
+        private static void Main(string[] args)
+        {
+            var builder = WebApplication.CreateBuilder(args);
 
-.Net - це безкоштовна платформа з відкритим вихідним кодом для розробки програмного забезпечення, яка підтримує кілька мов програмування, бібліотек та інструментів для створення застосунків під різні операційні системи.
+            // Додаємо контекст бази даних в контейнер впровадження залежностей (DI). Контейнер DI надає доступ до контексту бази даних та інших служб.
+            builder.Services.AddDbContext<PersonDB>(opt => opt.UseInMemoryDatabase("PersonList"));
+            builder.Services.AddDbContext<LogDB>(opt => opt.UseInMemoryDatabase("LogList"));
 
-Даний сервіс передбачає отримання з бази даних (реєстру) відомостей про інформаційні об'єкти (користувачів) та управління їх статусом, у тому числі обробку запитів на пошук, отримання, створення, редагування та видалення об'єктів.
+            // Включаємо браузер API, який являє собою службу, яка надає метадані про HTTP-API. Оглядач API використовується Swagger для створення документа Swagger.
+            builder.Services.AddEndpointsApiExplorer();
 
-Для демонстрації інтеграції з системою «Трембіта» було розроблено [вебклієнт](https://github.com/MadCat-88/Trembita_.Net_R_AsyncCli) для роботи з даним вебсервісом.
+            // Додаємо генератор документів Swagger OpenAPI до служб додатків і налаштовуємо його для надання додаткових відомостей про API, таких як назва та версія.
+            // Щоб отримати додаткові відомості про API, див. у статті "Початок роботи з NSwag" та
+            // ASP.NET Core (https://learn.microsoft.com/uk-ua/aspnet/core/tutorials/getting-started-with-nswag?view=aspnetcore-8.0#customize-api-documentation)
+            builder.Services.AddOpenApiDocument(config =>
+            {
+                config.DocumentName = "PersonAPI";
+                config.Title = "PersonAPI v1";
+                config.Version = "v1";
+            });
 
-## Інсталяція сервісу
-Для інсталяції вебсервісу необхідно клонувати репозиторій та скомпілювати вебсервіс, наприклад, за допомогою "Microsoft Visual Studio" з урахуванням типу ОС віртуальної машини (фізичного сервера) на якій буде працювати даний вебсервіс.
+            var app = builder.Build();
 
-## Ознайомлення з документацією АРІ
+            // Для зменшення коду організуємо групу кінцевих точок із загальним префіксом URL-адреси за допомогою методу MapGroup.
+            var PersonItems = app.MapGroup("/api");
 
-Після запуску вебсервісу можна отримати доступ до автоматичної **документації API** за наступною адресою:
+            PersonItems.MapGet("/", GetAllPerson); // Запит на перегляд всієї бази даних з використанням GET
+            PersonItems.MapPost("/", CreatePerson); // Запит на створення запису в базі даних з використанням POST
+            PersonItems.MapGet("/{unzr}", GetPerson); // Запит на перегляд запису бази даних за значенням УНЗР з використанням GET
+            PersonItems.MapPost("/{unzr}", UpdatePerson); // Корегування запису бази даних за значенням УНЗР з використанням POST
+            PersonItems.MapDelete("/{unzr}", DeletePerson); // Видалення запису в базы даних за значенням УНЗР з використанням DELETE
+            PersonItems.MapGet("/status/{id}", GetStatus); // Перегляд статусу запиту з використанням GET
+            PersonItems.MapPut("/status/{id}", ViewResult); // Перегляд результату запиту з використанням PUT
+            PersonItems.MapGet("/status", GetLog); // Перегляд логів запитів використанням GET
 
-- Swagger UI: http://[адреса серверу]:5044/swagger
-- Swagger UI: https://[адреса серверу]:7281/swagger
 
-## Наповнення бази даних тестовими записами
+            if (app.Environment.IsDevelopment())
+            {
+                // Додаємо проміжне програмне забезпечення для обслуговування документів OpenAPI 3.0
+                // Доступно за адресою: http://localhost:<port>/swagger/v1/swagger.json
+                app.UseOpenApi();
 
-Для забезпечення зручності тестування розробленого вебсервісу потрібно наповнити його БД тестовими записами.
-З цією метою було розроблено окремий скрипт, інсталяція та робота з яким описані [тут](https://github.com/MadCat-88/Trembita_PutFakeData_Rest)
+                // Додаємо веб-інтерфейс для взаємодії з документом
+                // Доступно за адресою: http://localhost:<port>/swagger
+                app.UseSwaggerUi();
+            }
 
-**Примітка:** При використанні даного скрипта в його налаштуваннях необхідно змінити порт на якому працює вебсервіс.
+            // 
+            app.Run();
 
-## Інтеграція вебсервісу з системою «Трембіта»
+            // Ці методи повертають об'єкти, що реалізують IResult. Будемо використовувати TypedResults замість Results.
+            // Це має кілька переваг, включаючи тестування і автоматично повертаючи метадані типу відповіді для OpenAPI, щоб описати кінцеву точку.
 
-Системи «Трембіта» не вимагає особливої спеціалізації вебсервісів для роботи з нею. Для повноцінної інтеграції з системою «Трембіта» вебсервіс повинен підтримувати можливість зберігання заголовків системи «Трембіта», які було передані в запиті від вебкліента через ШБО.
+            static string GenID(LogDB log)
+            {
+                return log.Logs.Count().ToString() + DateTime.Now.Ticks.ToString();
+            }
 
-Більш детальну інформацію про заголовки наведено в описі [роботи із REST-сервісами в системі «Трембіта»](https://github.com/MadCat-88/Services-development-for-Trembita-system/blob/main/REST%20services%20development%20for%20Trembita%20system.md#%D0%B7%D0%B0%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D0%BA%D0%B8-%D0%B7%D0%B0%D0%BF%D0%B8%D1%82%D1%96%D0%B2-%D0%B4%D0%BB%D1%8F-rest-%D1%81%D0%B5%D1%80%D0%B2%D1%96%D1%81%D1%96%D0%B2-%D0%BD%D0%B5%D0%BE%D0%B1%D1%85%D1%96%D0%B4%D0%BD%D1%96-%D0%B7%D0%B0%D0%B4%D0%BB%D1%8F-%D0%B7%D0%B0%D0%B1%D0%B5%D0%B7%D0%BF%D0%B5%D1%87%D0%B5%D0%BD%D0%BD%D1%8F-%D1%81%D1%83%D0%BC%D1%96%D1%81%D0%BD%D0%BE%D1%81%D1%82%D1%96-%D0%B7-%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%BE%D1%8E-%D1%82%D1%80%D0%B5%D0%BC%D0%B1%D1%96%D1%82%D0%B0).
+            static async Task<IResult> GetAllPerson(PersonDB db, LogDB log)
+            {
+                var logLine = new LogItem()
+                {
+                    Id = GenID(log),
+                    Status = LogItem.StatusEnum.beginning,
+                    DateReq = DateTime.UtcNow,
+                    RequestBody = "GetAllPerson"
+                };
+                log.Logs.Add(logLine);
+                await log.SaveChangesAsync();
 
-## Використання сервісу
+                return TypedResults.Ok(new Resp() { Id = logLine.Id, Status = logLine.Status });
+            }
 
-Вебсервіс представляє собою набір з 8 методів, які дозволяють управляти записами про умовних користувачів (Person) в БД:
+            static async Task<IResult> GetLog(LogDB log)
+            {
+                var logLine = new LogItem()
+                {
+                    Id = GenID(log),
+                    Status = LogItem.StatusEnum.result,
+                    DateReq = DateTime.UtcNow,
+                    RequestBody = "GetLog",
+                    DateResp = DateTime.UtcNow,
+                    ResponceBody = JsonConvert.SerializeObject("the result is archived")
+                };
+                log.Logs.Add(logLine);
+                await log.SaveChangesAsync();
 
-- [створення нового запису](./docs/using.md#person-post);
-- [отримання всіх записів з БД](./docs/using.md#person-get-all);
-- [оновлення існуючого запису за кодом УНЗР](./docs/using.md#person-update);
-- [отримання запису по заданому критерію пошуку](./docs/using.md#person-get-by-parameter);
-- [видалення існуючого запису за кодом УНЗР](./docs/using.md#person-delete);
-- [перегляд статусу запиту](./docs/using.md#get-status);
-- [перегляд результату запиту](./docs/using.md#put-status);
-- [перегляд журналів запитів](./docs/using.md#get-status).
+                return TypedResults.Ok(await log.Logs.ToArrayAsync());
+            }
 
-Після встановлення вебсервісу його база даних порожня.
-Для демонстрації можливостей вебсервісу першим кроком необхідно створити нові записи в БД. Це можна зробити використовуючи відповідний [вебклієнт](https://github.com/MadCat-88/Trembita_.Net_R_AsyncCli), з використанням методу [Person Post](./docs/using.md#person-post) або за допомогою [скрипта наповнення бази даних](./README.MD#наповнення-бази-даних-тестовими-записами).
+            static async Task<IResult> CreatePerson(PersonItem inputPers, PersonDB db, LogDB log)
+            {
+                try
+                {
+                    var Pers = new PersonItem()
+                    {
+                        Name = inputPers.Name,
+                        Surname = inputPers.Surname,
+                        Patronym = inputPers.Patronym,
+                        DateOfBirth = inputPers.DateOfBirth,
+                        Gender = inputPers.Gender,
+                        Rnokpp = inputPers.Rnokpp,
+                        PassportNumber = inputPers.PassportNumber,
+                        Unzr = inputPers.Unzr,
+                        Inserted = DateTime.Now,
+                        LastUpdated = DateTime.Now
+                    };
 
-## Ліцензія
+                    db.Persons.Add(Pers);
+                    await db.SaveChangesAsync();
 
-Цей проєкт ліцензується відповідно до умов MIT License.
+                    var logLine = new LogItem()
+                    {
+                        Id = GenID(log),
+                        Status = LogItem.StatusEnum.result,
+                        DateReq = DateTime.UtcNow,
+                        RequestBody = "CreatePerson",
+                        DateResp = DateTime.UtcNow,
+                        ResponceBody = JsonConvert.SerializeObject(Pers)
+                    };
+                    log.Logs.Add(logLine);
+                    await log.SaveChangesAsync();
 
- ##
-Матеріали створено за підтримки проєкту міжнародної технічної допомоги «Підтримка ЄС цифрової трансформації України (DT4UA)».
+                    return TypedResults.Ok(new Resp() { Id = logLine.Id, Status = logLine.Status });
+                }
+                catch (Exception e)
+                {
+                    return TypedResults.Problem(e.Message);
+                }
+            };
+
+            static async Task<IResult> GetPerson(string unzr, PersonDB db, LogDB log)
+            {
+                try
+                {
+                    var r = new Resp();
+                    var pers = await db.Persons.FindAsync(unzr);
+
+                    if (pers is null)
+                    {
+                        var logLine = new LogItem()
+                        {
+                            Id = GenID(log),
+                            Status = LogItem.StatusEnum.error,
+                            DateReq = DateTime.UtcNow,
+                            RequestBody = "GetPerson",
+                            DateResp = DateTime.UtcNow,
+                            ResponceBody = JsonConvert.SerializeObject("Not Found")
+                        };
+                        log.Logs.Add(logLine);
+                        await log.SaveChangesAsync();
+                        r.Id = logLine.Id;
+                        r.Status = logLine.Status;
+                    }
+                    else
+                    {
+                        var logLine = new LogItem()
+                        {
+                            Id = GenID(log),
+                            Status = LogItem.StatusEnum.processing,
+                            DateReq = DateTime.UtcNow,
+                            RequestBody = "GetPerson",
+                            DateResp = DateTime.UtcNow,
+                            ResponceBody = JsonConvert.SerializeObject(pers)
+                        };
+                        log.Logs.Add(logLine);
+                        await log.SaveChangesAsync();
+                        r.Id = logLine.Id;
+                        r.Status = logLine.Status;
+                    }
+                    return TypedResults.Ok(r);
+                }
+                catch (Exception e)
+                {
+                    return TypedResults.Problem(e.Message);
+                }
+            };
+
+            static async Task<IResult> GetStatus(string id, LogDB log, PersonDB db)
+            {
+                try
+                {
+                    var r = new Resp();
+                    var logline = await log.Logs.FindAsync(id);
+
+                    if (logline is null)
+                    {
+                        var logLine = new LogItem()
+                        {
+                            Id = GenID(log),
+                            Status = LogItem.StatusEnum.error,
+                            DateReq = DateTime.UtcNow,
+                            RequestBody = "GetStatus",
+                            DateResp = DateTime.UtcNow,
+                            ResponceBody = JsonConvert.SerializeObject("Not Found")
+                        };
+                        log.Logs.Add(logLine);
+                        await log.SaveChangesAsync();
+
+                        return TypedResults.NotFound(id);
+                    }
+                    else
+                    {
+                        switch (logline.Status)
+                        {
+                            case LogItem.StatusEnum.error:
+                                return TypedResults.Ok(new Resp() { Id = logline.Id, Status = logline.Status });
+
+                            case LogItem.StatusEnum.beginning:
+                                logline.Status = LogItem.StatusEnum.processing;
+                                await log.SaveChangesAsync();
+                                return TypedResults.Ok(new Resp() { Id = logline.Id, Status = logline.Status });
+
+                            case LogItem.StatusEnum.processing:
+                                logline.Status = LogItem.StatusEnum.result;
+                                if (logline.RequestBody == "GetAllPerson")
+                                {
+                                    logline.ResponceBody = JsonConvert.SerializeObject(await db.Persons.ToArrayAsync());
+                                }
+                                await log.SaveChangesAsync();
+
+                                return TypedResults.Ok(new Resp() { Id = logline.Id, Status = logline.Status });
+
+                            default:
+                                return TypedResults.Ok(logline.ResponceBody);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    return TypedResults.Problem(e.Message);
+                }
+            };
+
+            static async Task<IResult> UpdatePerson(string unzr, PersonItem inputPers, PersonDB db, LogDB log)
+            {
+                try
+                {
+                    var r = new Resp();
+                    var pers = await db.Persons.FindAsync(unzr);
+
+                    if (pers is null)
+                    {
+                        var logLine = new LogItem()
+                        {
+                            Id = GenID(log),
+                            Status = LogItem.StatusEnum.error,
+                            DateReq = DateTime.UtcNow,
+                            RequestBody = "GetPerson",
+                            DateResp = DateTime.UtcNow,
+                            ResponceBody = JsonConvert.SerializeObject("Not Found")
+                        };
+                        log.Logs.Add(logLine);
+                        await log.SaveChangesAsync();
+                        r.Id = logLine.Id;
+                        r.Status = logLine.Status;
+                    }
+                    else
+                    {
+                        pers.Name = inputPers.Name;
+                        pers.Surname = inputPers.Surname;
+                        pers.Patronym = inputPers.Patronym;
+                        pers.DateOfBirth = inputPers.DateOfBirth;
+                        pers.Gender = inputPers.Gender;
+                        pers.Rnokpp = inputPers.Rnokpp;
+                        pers.PassportNumber = inputPers.PassportNumber;
+                        pers.LastUpdated = DateTime.Now;
+
+                        await db.SaveChangesAsync();
+
+                        var logLine = new LogItem()
+                        {
+                            Id = GenID(log),
+                            Status = LogItem.StatusEnum.result,
+                            DateReq = DateTime.UtcNow,
+                            RequestBody = "UpdatePerson",
+                            DateResp = DateTime.UtcNow,
+                            ResponceBody = JsonConvert.SerializeObject(pers)
+                        };
+                        log.Logs.Add(logLine);
+                        await log.SaveChangesAsync();
+                        r.Id = logLine.Id;
+                        r.Status = logLine.Status;
+                    }
+                    return TypedResults.Ok(r);
+                }
+                catch (Exception e)
+                {
+                    return TypedResults.Problem(e.Message);
+                }
+            };
+
+            static async Task<IResult> DeletePerson(string unzr, PersonDB db, LogDB log)
+            {
+                try
+                {
+                    var r = new Resp();
+                    if (await db.Persons.FindAsync(unzr) is PersonItem pers)
+                    {
+                        db.Persons.Remove(pers);
+                        await db.SaveChangesAsync();
+
+                        var logLine = new LogItem()
+                        {
+                            Id = GenID(log),
+                            Status = LogItem.StatusEnum.result,
+                            DateReq = DateTime.UtcNow,
+                            RequestBody = "DeletePerson",
+                            DateResp = DateTime.UtcNow,
+                            ResponceBody = JsonConvert.SerializeObject(pers)
+                        };
+                        log.Logs.Add(logLine);
+                        await log.SaveChangesAsync();
+                        r.Id = logLine.Id;
+                        r.Status = logLine.Status;
+                    }
+                    else
+                    {
+                        var logLine = new LogItem()
+                        {
+                            Id = GenID(log),
+                            Status = LogItem.StatusEnum.error,
+                            DateReq = DateTime.UtcNow,
+                            RequestBody = "DeletePerson",
+                            DateResp = DateTime.UtcNow,
+                            ResponceBody = JsonConvert.SerializeObject("Not Found")
+                        };
+                        log.Logs.Add(logLine);
+                        await log.SaveChangesAsync();
+                        r.Id = logLine.Id;
+                        r.Status = logLine.Status;
+                    }
+
+                    return TypedResults.Ok(r);
+                }
+                catch (Exception e)
+                {
+                    return TypedResults.Problem(e.Message);
+                }
+            }
+
+            static async Task<IResult> ViewResult(string id, LogDB log)
+            {
+                try
+                {
+                    var r = new Resp();
+                    var logline = await log.Logs.FindAsync(id);
+
+                    if (logline is null) return TypedResults.NotFound(id);
+                    if (logline.Status == LogItem.StatusEnum.result)
+                    {
+                        return logline.RequestBody switch
+                        {
+                            "GetAllPerson" => TypedResults.Ok(JsonConvert.DeserializeObject<PersonItem[]>(logline.ResponceBody)),
+                            "GetPerson" => TypedResults.Ok(JsonConvert.DeserializeObject<PersonItem>(logline.ResponceBody)),
+                            "UpdatePerson" => TypedResults.Ok(JsonConvert.DeserializeObject<PersonItem>(logline.ResponceBody)),
+                            "DeletePerson" => TypedResults.Ok(JsonConvert.DeserializeObject<PersonItem>(logline.ResponceBody)),
+                            _ => TypedResults.Ok(JsonConvert.DeserializeObject(logline.ResponceBody)),
+                        };
+                    }
+                    else
+                    {
+                        return TypedResults.Problem($"Status is {logline.Status}");
+                    }
+                }
+                catch (Exception e)
+                {
+                    return TypedResults.Problem(e.Message);
+                }
+            };
+        }
+    }
+}
